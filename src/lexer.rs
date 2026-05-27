@@ -1,324 +1,266 @@
-/*
-The Lexer, Scanner or Tokenizer:
-
-the Lexer is the first part of a compiler, it breaks the source code (usually text),
-into a stream of tokens. these tokens are the smallest meaningful element within the source code,
-and every single structure of the source language is formated of tokens.
-
----- EXAMPLES ----
-the best way to understand is to see a simple example, here is one:
-
-taking this simple source code (in C language):
-```
-void something() {}
-```
-the lexer will output the following tokens (the names of the tokens are referencial):
-[
-TK_voidtype,
-TK_identifier,
-TK_left_paren,
-TK_right_paren,
-TK_left_brace,
-TK_right_brace
-]
-
-if you see the example above you will see that the lexer doesn't generate an `whitespace token`,
-that because the white spaces doesn't matter; that why in language like rust or every other
-it doesn't matter if you write ```let x = 5;``` or ```let       x=    5   ;```, because the compiler just 
-skips the white spaces!
-*/
+// the lexer implementation //
 
 #![allow(dead_code)]
 
-use std::{collections::HashMap};
 
-// we use a simple enum to represent every type of token
-#[derive(Debug,Clone,PartialEq)]
-pub enum TokenType {
-    NewVector,
-    FreeVector,
-    GetVector,
-    PushVector,
-
-    Var,
+#[derive(Debug, Clone, PartialEq)]
+pub enum TkType {
+// Keywords
     If,
     Else,
+    Extern,
     Func,
     Return,
+    Var,
     While,
-    Id,
-    Colon,
-    Semicolon,
-    Comma,
-    Assing,
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    Not,
-    And,
-    Or,
-    Eq,
-    Ne,
-    Lt,
-    Gt,
-    Le,
-    Ge,
+    Break,
+    Continue,
+    
+// Delimiters
     Lparen,
     Rparen,
     Lbrace,
     Rbrace,
+    Colon,
+    Comma,
+
+// Operators
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Assing,
+    Lt,
+    Gt,
+    Eq,
+    Ne,
+    Le,
+    Ge,
+    And,
+    Or,
+    Not,
+    VaArgs,
+
+// Types
     IntT,
     FloatT,
     BoolT,
     StringT,
     VoidT,
-    VecT,
-    IntL(usize),
-    FloatL(f64),
-    BoolL(bool),
-    StringL(String),
-    Cblock(String),
-    Eof
+
+// Literals
+    IntL,
+    FloatL,
+    True,
+    False,
+    StringL,
+    Id,
+    
+    Eof, // sentinel value
+
+    Err // error value
 }
 
-// an struct to represent and store information of a token
-#[derive(Clone,PartialEq)]
 pub struct Tk {
-    pub tk_type: TokenType,
-    pub span: String,
-    pub line: usize
+    pub tk_type: TkType,
+    pub start:   usize,
+    pub end:     usize,
+    line:    usize
 }
+
 impl Tk {
-    pub fn new(tk_type: TokenType, span:String, line:usize)->Self {
-        return Tk{
+    pub fn new(tk_type: TkType, start: usize, end: usize, line: usize) -> Self {
+        return Tk {
             tk_type,
-            span,
+            start,
+            end,
             line
-        };
+        }
     }
-}
-impl std::fmt::Debug for Tk { // a simple debug printer
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f,"Token [{}] {:?} >> `{}`",self.line,self.tk_type, self.span)
+
+    // debug implementations for Tk //
+    pub fn print(&self, source: &str) {
+        eprintln!("Token [{}] {:?} >> `{}`", self.line, self.tk_type, source.get(self.start..self.end).or(Some("EOF")).unwrap());
     }
 }
 
-/*
-the main struct of the lexer, storing all relevant information like
-the source code, the current index, current line and, obviusly, the tokens!
-*/
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Lexer {
-    source: String,
-    pos: usize,
-    pub curr_line: usize,
-    pub tokens: Vec<Tk>
+    source:   String,
+    pos:      usize,
+    line:     usize,
+    chars:    Vec<char>,
 }
+
 impl Lexer {
-    pub fn new(source: String)->Self {
-        return Lexer{
-            source,
+    pub fn new(source: String) -> Self {
+        return Lexer {
+            source: source.clone(),
             pos: 0,
-            curr_line: 0,
-            tokens: Vec::new()
+            line: 1,
+            chars: source.chars().collect()
         };
     }
-    // this is the main function
-    pub fn lexer(&mut self) {
-        /*
-        to maintain the code simple i decided to use the most simple but functional way to create a lexer (as i know), the comments
-        above every partexplines it: 
-        */
 
-        // here i used a hashmap to store all the keywords.
-        // because the keywords will never changes we can pair them with their
-        // repective token type, and the best way to store pairs is using a
-        // hash map (due to its near O(1) performance in almost all its operations)
-        let keywords = HashMap::from([
-            ("__new_vector",TokenType::NewVector),
-            ("__free_vector",TokenType::FreeVector),
-            ("__get_vector",TokenType::GetVector),
-            ("__push_vector",TokenType::PushVector),
-            ("var",TokenType::Var),
-            ("int",TokenType::IntT),
-            ("float",TokenType::FloatT),
-            ("bool",TokenType::BoolT),
-            ("string",TokenType::StringT),
-            ("void",TokenType::VoidT),
-            ("vector",TokenType::VecT),
-            ("func",TokenType::Func),
-            ("while",TokenType::While),
-            ("if",TokenType::If),
-            ("else",TokenType::Else),
-            ("return",TokenType::Return),
-            ("true",TokenType::BoolL(true)),
-            ("false",TokenType::BoolL(false)),
-            ("not",TokenType::Not),
-            ("and", TokenType::And),
-            ("or", TokenType::Or)
-        ]);
-        // we use the same aproach as above, because the symbols will always be the same
-        let symbols = HashMap::from([
-            (';',TokenType::Semicolon),
-            (':',TokenType::Colon),
-            (',',TokenType::Comma),
-            ('=',TokenType::Assing),
-            ('+',TokenType::Plus),
-            ('-',TokenType::Minus),
-            ('*',TokenType::Star),
-            ('/',TokenType::Slash),
-            ('<',TokenType::Lt),
-            ('>',TokenType::Gt),
-            ('(',TokenType::Lparen),
-            (')',TokenType::Rparen),
-            ('{',TokenType::Lbrace),
-            ('}',TokenType::Rbrace)
-        ]);
+    // auxiliar functions //
 
-        /* now we enter in the token recognition and generation */
+    /// checks if some identifier that starts at `start` is a keyword
+    fn check_identifier(&self, start: usize) -> TkType {
+        match self.source.get(start..self.pos).unwrap() {
+            "var" => TkType::Var,
+            "if" => TkType::If,
+            "else" => TkType::Else,
+            "extern" => TkType::Extern,
+            "func" => TkType::Func,
+            "return" => TkType::Return,
+            "while" => TkType::While,
+            "break" => TkType::Break,
+            "continue" => TkType::Continue,
+            "int" => TkType::IntT,
+            "float" => TkType::FloatT,
+            "bool" => TkType::BoolT,
+            "str" => TkType::StringT,
+            "void" => TkType::VoidT,
+            "and" => TkType::And,
+            "or" => TkType::Or,
+            "not" => TkType::Not,
+            "true" => TkType::True,
+            "false" => TkType::False,
+            _ => TkType::Id
+        }
+    }
 
-        // we use a string to store the character in the current index
-        // the we use this string to recognize the token
-        let mut temp = String::new();
-
-        // as in rust we cannot index an String directly, i convert the source into a vector of characters
-        let chars = self.source.chars().collect::<Vec<char>>();
-        loop {
-            // if we have reached the end of the code, we generate the EOF (End Of File) token and exit of the loop
-            if self.pos == self.source.len() {
-                self.tokens.push(Tk::new(TokenType::Eof, temp.clone(), self.curr_line));
-                break;
-            }
-
-            // we get the character in the current position (or index)
-            let c = chars[self.pos];
-            match c {
-                'a'..='z' | 'A'..='Z' | '_' => { // if the char is alphabetic (or a '_'), that mean is and identifier or a keyword
-                    while self.pos < self.source.len() {
-                        if chars[self.pos].is_alphanumeric() || chars[self.pos] == '_' { // after the first letter, a identifier can have numbers or '_' (underscore)
-                            temp.push(chars[self.pos]);
-                            self.pos += 1; // always advance the position
-                        } else {
-                            break;
-                        }
-                    }
-                    if temp.as_str() == "c_code" { // we need to handle our special case of c_code string
-                        while chars[self.pos] == ' ' {self.pos += 1}
-                        temp = String::new();
-                        let mut brace_counter = 1;
-                        self.pos += 1;
-                        while brace_counter > 0 {
-                            if chars[self.pos] == '{' { brace_counter += 1; temp.push(chars[self.pos]); self.pos += 1; }
-                            else if chars[self.pos] == '}' { 
-                                brace_counter -= 1; 
-                                if brace_counter == 0 {
-                                    self.pos += 1;
-                                } else {
-                                    temp.push(chars[self.pos]);
-                                    self.pos += 1
-                                }
-                            }
-                            else {
-                                temp.push(chars[self.pos]);
-                                self.pos += 1;
-                            }
-                        }
-                        self.tokens.push(Tk::new(TokenType::Cblock(temp.clone()), temp.clone(), self.curr_line));
-                        temp = String::new(); // we restore the temporal string
-                    } else if keywords.contains_key(&temp.as_str()) { // if our keyword hashmap contains the auxiliar string, is a keyword
-                        self.tokens.push(Tk::new(keywords.get(&temp.as_str()).unwrap().clone(), temp.clone(), self.curr_line));
-                        temp = String::new();
-                    } else { // if not, is an identifier
-                        self.tokens.push(Tk::new(TokenType::Id, temp.clone(), self.curr_line));
-                        temp = String::new();
-                    }
-                }
-                '0'..='9' => { // if the start is a number, must be a number
-                    let mut dot = false; // a sentinel flag
-                    while self.pos < self.source.len() {
-                        if chars[self.pos].is_ascii_digit() || chars[self.pos] == '.' { // if the char is a number or is a dot, is a number
-                            if chars[self.pos] == '.' && dot { // a number cannot have two dots
-                                // we use panic! for simplicity
-                                panic!("error [{}]: malformed numeric literal expected only one dot, found two",self.curr_line);
-                            } else if chars[self.pos] == '.' { // we have not found any dot so is correct
-                                dot = true;
-                            }
-                            temp.push(chars[self.pos]);
-                            self.pos += 1;
-                        } else {
-                            break;
-                        }
-                    }
-                    if dot { // if the number has a dot, is a float
-                        self.tokens.push(Tk::new(TokenType::FloatL(temp.parse().unwrap()), temp.clone(), self.curr_line));
-                        temp = String::new()
-                    } else { // else is a integer
-                        self.tokens.push(Tk::new(TokenType::IntL(temp.parse().unwrap()), temp.clone(), self.curr_line));
-                        temp = String::new()
-                    }
-                }
-                '"' => { // this must be a string
-                    self.pos += 1;
-                    while self.pos < chars.len() {
-                        if chars[self.pos] != '"' {
-                            temp.push(chars[self.pos]);
-                            self.pos += 1;
-                        } else {
-                            self.pos += 1;
-                            break;
-                        }    
-                    }
-                    self.tokens.push(Tk::new(TokenType::StringL(temp.clone()), temp, self.curr_line));
-                    temp = String::new();
-                }
-                _ => {
-                    if c == '/' && chars[self.pos + 1] == '/' { // a single line comment
-                        self.pos += 1;
-                        while self.pos < chars.len() {
-                            if chars[self.pos] == '\n' {
-                                break;
-                            }
-                            self.pos += 1;
-                        }
-                    } else if c == '/' && chars[self.pos + 1] == '*' { // a multiline comment
-                        self.pos += 1;
-                        while self.pos < chars.len() {
-                            if chars[self.pos] == '*' && chars[self.pos + 1] == '/' {
-                                self.pos += 2;
-                                break;
-                            }
-                            self.pos += 1;
-                        }
-                    } 
-                    // in this section we identify the 2 character operators
-                    else if c == '>' && chars[self.pos + 1] == '=' {
-                        self.pos += 2;
-                        self.tokens.push(Tk::new(TokenType::Ge, ">=".to_string(), self.curr_line));
-                    }  else if c == '<' && chars[self.pos + 1] == '=' {
-                        self.pos += 2;
-                        self.tokens.push(Tk::new(TokenType::Le, "<=".to_string(), self.curr_line));
-                    }  else if c == '!' && chars[self.pos + 1] == '=' {
-                        self.pos += 2;
-                        self.tokens.push(Tk::new(TokenType::Ne, "!=".to_string(), self.curr_line));
-                    }  else if c == '=' && chars[self.pos + 1] == '=' {
-                        self.pos += 2;
-                        self.tokens.push(Tk::new(TokenType::Eq, "==".to_string(), self.curr_line));
-                    } 
-                    // and for single character operators
-                    else if symbols.contains_key(&c) {
-                        self.tokens.push(Tk::new(symbols.get(&c).unwrap().clone(), c.to_string(), self.curr_line));
-                        self.pos += 1;
-                    } else if c.is_whitespace() { // we don't want white spaces
-                        if c == '\n' { self.curr_line += 1 }
-                        self.pos += 1;
-                    } else {
-                        // if all of the above conditions failed, that is an error!
-                        // again, we use panic! just for simplicity 
-                        panic!("error: unknown start of token `{c}` at line {}",self.curr_line);
-                    }
-                }
+    fn check_character(&self) -> TkType {
+        if self.chars.len() - self.pos >= 3 {
+            if self.chars[self.pos..self.pos+3] == ['.','.','.'] {
+                return TkType::VaArgs
             }
         }
+        match self.source.get(self.pos..self.pos + 1).unwrap() {
+            "(" => TkType::Lparen,
+            ")" => TkType::Rparen,
+            "{" => TkType::Lbrace,
+            "}" => TkType::Rbrace,
+            ":" => TkType::Colon,
+            "," => TkType::Comma,
+            "+" => TkType::Plus,
+            "-" => TkType::Minus,
+            "*" => TkType::Star,
+            "/" => TkType::Slash,
+            _ => TkType::Err,
+        }
+    }
+
+    // main function
+    pub fn next_token(&mut self) -> Tk {
+        while self.pos < self.source.len() {
+            if self.chars[self.pos].is_whitespace() {
+                if self.chars[self.pos] == '\n' { self.line += 1 }
+                self.pos += 1;
+            } else if self.chars[self.pos] == '/' && self.chars[self.pos+1] == '/' {
+                self.pos += 2;
+                while self.chars[self.pos] != '\n' { self.pos += 1 }
+                self.pos += 1;
+                self.line += 1;
+            } else {
+                break;
+            }
+        }
+
+        if self.pos >= self.source.len() {
+            return Tk::new(TkType::Eof, self.pos, 0, self.line);
+        }
+
+        match self.chars[self.pos] {
+            'a'..='z' | 'A'..='Z' | '_' => {
+                let start = self.pos;
+                while self.pos < self.source.len() && (self.chars[self.pos].is_alphanumeric() || self.chars[self.pos] == '_') { self.pos += 1; }
+
+                return Tk::new(self.check_identifier(start), start, self.pos, self.line)
+            }
+            '0'..='9' => {
+                let start = self.pos;
+                let mut dot = false;
+                while self.pos < self.source.len() && (self.chars[self.pos].is_ascii_digit() || self.chars[self.pos] == '.') {
+                    if self.chars[self.pos] == '.' {
+                        if dot {
+                            eprintln!(r#"[ERROR] invalid number with 2 decimal points at line {}"#, self.line);
+                            panic!("panicking due to error while lexing");
+                        } else {
+                            self.pos += 1;
+                            dot = true;
+                        }
+                    } else {
+                        self.pos += 1;
+                    }
+                }
+
+                if dot {
+                    return Tk::new(TkType::FloatL, start, self.pos, self.line);
+                } else {
+                    return Tk::new(TkType::IntL, start, self.pos, self.line);
+                }
+            }
+            '"' => {
+                self.pos += 1;
+                let start = self.pos;
+                while self.pos < self.source.len() && self.chars[self.pos] != '"' && self.chars[self.pos] != '\n' { self.pos += 1; }
+                self.pos += 1; // second `"`
+
+                return Tk::new(TkType::StringL, start, self.pos-1, self.line);
+            }
+            _ => {
+                if self.chars[self.pos] == '>' {
+                    if self.chars[self.pos+1] == '=' {
+                        self.pos += 2;
+                        return Tk::new(TkType::Ge, self.pos-2, self.pos, self.line);
+                    } else {
+                        self.pos += 1;
+                        return Tk::new(TkType::Gt, self.pos-1, self.pos, self.line);
+                    }
+                } else if self.chars[self.pos] == '<' {
+                    if self.chars[self.pos+1] == '=' {
+                        self.pos += 2;
+                        return Tk::new(TkType::Le, self.pos-2, self.pos, self.line);
+                    } else {
+                        self.pos += 1;
+                        return Tk::new(TkType::Lt, self.pos-1, self.pos, self.line);
+                    }
+                } else if self.chars[self.pos] == '=' {
+                    if self.chars[self.pos+1] == '=' {
+                        self.pos += 2;
+                        return Tk::new(TkType::Eq, self.pos-2, self.pos, self.line);
+                    } else {
+                        self.pos += 1;
+                        return Tk::new(TkType::Assing, self.pos-1, self.pos, self.line);
+                    }
+                } else if self.chars[self.pos] == '!' && self.chars[self.pos+1] == '=' {
+                    self.pos += 2;
+                    return Tk::new(TkType::Ne, self.pos-2, self.pos, self.line);
+                } else {
+                    let ttype = self.check_character();
+                    if ttype != TkType::Err && ttype != TkType::VaArgs {
+                        self.pos += 1;
+                        return Tk::new(ttype, self.pos-1, self.pos, self.line);
+                    } else if ttype == TkType::VaArgs {
+                        self.pos += 3;
+                        return Tk::new(ttype, self.pos-3, self.pos, self.line)
+                    } else {
+                        eprintln!("[ERROR] unknown start of token `{}`", self.chars[self.pos]);
+                        panic!()
+                    }
+                }
+            }
+        }        
+    }
+
+    // returns the current token but does not change the position or line
+    pub fn peek_token(&mut self) -> Tk {
+        let cpos = self.pos; // current position
+        let cline = self.line; // current line
+        let tk = self.next_token();
+        self.pos = cpos;
+        self.line = cline;
+        return tk;
     }
 }

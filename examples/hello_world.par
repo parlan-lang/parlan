@@ -1,7 +1,6 @@
-/*
-hello world example
-*/
+extern func printf(fmt: str, ...): int
+
 func main(): int {
-    c_code { printf("hello world"); }
+    printf("hello world")
     return 0
 }

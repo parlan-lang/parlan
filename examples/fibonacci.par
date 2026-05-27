@@ -1,13 +1,14 @@
-func fibonacci(n: int): int {
+extern func printf(fmt: str, ...): int
+
+func fibonacci(n: int):int {
     if n < 2 {
         return n
     }
-    return fibonacci(n - 1) + fibonacci (n - 2)
+    return fibonacci(n - 1) + fibonacci(n - 2)
 }
 
 func main(): int {
-    var fib20: int = fibonacci(20)
-    c_code { printf("fib20: %d", usr_fib20); } //remember to add the 'usr_' sufix
-
+    var f20: int = fibonacci(20)
+    printf("fibonacci of 20 = %d", f20)
     return 0
 }

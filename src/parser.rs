@@ -1,425 +1,412 @@
-/*
-The Parser or Syntactic analyzer:
 
-the parser is usually (1) the second part of a compiler, it tooks the token stream
-and generates something called an Abstrac Syntax Tree (or for short: AST). the AST
-is a structure that represent the source code syntacticaly, and the parser first 
-checks if the the source code (well, the token stream that represent the source code) is
-syntacticaly correct for the language, that mean the parser of a C compiler is not the same
-as the parser of a Rust compiler, because both has diferent syntaxis! 
-the second thing that the parser does is construct the AST from the tokens, these two 
-processes are usually done at the same time (2).
-
-but for what is the AST? why we need to construct it? well, actually you don't need
-an AST to get a functional compiler (1), but is more common to use it, but why?
-the AST is usually used to simplify the other parts of the compiler (especialy the 
-semantic analisys and backend), because it offers a simple structure that you can
-walk and comprobe its structure. the AST is a tree structure conformed by nodes, these
-nodes can be root nodes, leaf nodes or normal nodes (well, i name them like this); a root 
-node is a node that doesn't have a father node (is a node that is not contained by other), 
-leaf nodes are nodes that doesn't have child nodes (is a node that does not contain other, 
-like numbers or literals); and there are normal nodes, these have both a father node and child(s) node(s)
-
-another important thing in a parser is the operator precedence. operator precedence just says that
-some operations should be done first than others.
-in this compiler we use the following operator precedence:
-
-equality ('==','!=') ->
-comparation ('>','<','<=','>=') ->
-terms ('+', '-') ->
-factors ('*','/') ->
-unary ('-', 'not') ->
-call (function calls) ->
-primarys (literals)
-
-this should be read backwards, that mean primarys must be parsed before calls, calls before unary 
-operators, unary operators before factors, and so on
-
-almost every function that handles expretions here has the following structure (except parse_primary and parse_unary):
-
-```
-function parse_something() {
-    left = parse_next_precedence_level()
-    if there is the operator X {
-        consume_operator(X)
-        right = parse_next_precedence_level()
-        return Node {left, right}
-    }
-    return left
-}
-```
-this structure ensures that if the operator was not found, we go to the next precedence
-
-i will put some examples below, but you need to understand that an AST can be textualy
-represented several forms.
-
----- EXAMPLES ----
-
-with the previous stream of tokens we created (see the docs in lexer.rs file):
-```
-[
-TK_voidtype,
-TK_identifier,
-TK_left_paren,
-TK_right_paren,
-TK_left_brace,
-TK_right_brace
-]
-```
-We can create the following AST (i hope my example is clear):
-```
-FuncDeclNode {
-    type: TK_voidtype
-    name: IdentifierNode { "something" }
-    body: BlockNode {
-        nodes: [
-        
-        ]
-    }
-}
-```
-
----- NOTES ----
-
-[1]. in the book 'crafting interpreters' by Robert Nystrom, Robert creates actually a compiler to bytecode
-    instead of a interpreter (the second part, using C. the first part uses Java). and this doesn't have a
-    parser or an AST, it just translate the token stream to bytecode
-
-[2]. well, i will be more clear: with "at the same time" i'm not referring to the fact that it uses multithreating or 
-    asynchronous programming, i mean the function that analyzes the token stream, also generates the node after the analysis
-*/
-
-#![allow(dead_code)]
-
-use crate::{ast::*, lexer::{Tk, TokenType}};
-
-#[derive(Debug,Clone,PartialEq)]
-pub struct Parser {
-    idx: usize,
-    tokens: Vec<Tk>
-}
+use crate::ast::*;
+use crate::lexer::*;
 
 impl Parser {
-    pub fn new(tokens: Vec<Tk>)->Self {
+    pub fn new(src: String) -> Self {
         return Parser {
-            tokens,
-            idx: 0
-        }
-    }
-    // ---- auxiliar functions ----
-
-    fn peek(&mut self)->&Tk {
-        if self.idx < self.tokens.len() {
-            return &self.tokens[self.idx]
-        } else {
-            return &self.tokens[self.tokens.len()-1]
-        }
-    }
-    fn eat(&mut self, tk_type: TokenType)->&Tk {
-        if self.peek().tk_type == tk_type {
-            self.idx += 1;
-            return &self.tokens[self.idx-1];
-        } else {
-            panic!("error: expected token of type {tk_type:?}, found type {:?}",self.peek().tk_type)
+            source: src.clone(),
+            nodes: Vec::new(),
+            lexer: Lexer::new(src)
         }
     }
 
-    fn parse_decl(&mut self)->Node {
-        // here we select the function to parse the current structure (may be a statement or an expretion)
+    // auxiliar functions //
+
+    fn peek(&mut self) -> Tk {
+        return self.lexer.peek_token();
+    }
+
+    fn eat(&mut self, ttype: TkType) -> Tk {
+        if self.peek().tk_type == ttype {
+            return self.lexer.next_token();
+        } else {
+            panic!("[ERROR] expected token `{:?}` found `{:?}`", ttype, self.peek().tk_type)
+        }
+    }
+
+    // parser //
+
+    fn parse_decl(&mut self) -> Node {
         match self.peek().tk_type {
-            TokenType::Var => self.parse_var_decl(),
-            TokenType::If => self.parse_if(),
-            TokenType::Func => self.parse_func_decl(),
-            TokenType::Return => self.parse_return(),
-            TokenType::While => self.parse_while(),
-            _ => {
-                return self.parse_expr();
-            }
+            TkType::Func | TkType::Extern => self.parse_func_decl(),
+            TkType::Return => self.parse_return(),
+            TkType::While => self.parse_while(),
+            TkType::If => self.parse_if(),
+            TkType::Var => self.parse_var_decl(),
+            _ => self.parse_expr()
         }
     }
-    fn parse_var_decl(&mut self)->Node {
-        // here we analyze the structure of a variable declaration
-        self.eat(TokenType::Var);
-        let name = self.eat(TokenType::Id).span.clone();
-        self.eat(TokenType::Colon);
-        let vartype = self.eat(self.tokens[self.idx].tk_type.clone()).tk_type.clone();
-        self.eat(TokenType::Assing);
+
+    // statements //
+
+    fn parse_var_decl(&mut self) -> Node {
+        self.eat(TkType::Var);
+        
+        let name_tk = self.eat(TkType::Id);
+        
+        self.eat(TkType::Colon);
+        
+        let vtype = self.lexer.next_token().tk_type; // we call the lexer directly
+        
+        self.eat(TkType::Assing);
+
         let expr = self.parse_expr();
-        // and here we generate the code
-        return Node::VarDecl { vartype, name, value: Box::new(expr) }    
-    }
-    fn parse_if(&mut self)->Node {
-        // again the same thing here
-        self.eat(TokenType::If);
-        let cond = self.parse_expr();
-        let block = self.parse_block();
-        if self.peek().tk_type == TokenType::Else {
-            self.idx += 1;
-            let else_block = self.parse_block();
-            return Node::If { cond: Box::new(cond), block: Box::new(block), else_block: Some(Box::new(else_block)) }
+
+        return Node::VarDecl {
+            name_s: name_tk.start, 
+            name_e: name_tk.end, 
+            vtype, 
+            value: Box::new(expr) 
         }
-        return Node::If { cond: Box::new(cond), block: Box::new(block), else_block: None }
     }
-    fn parse_while(&mut self)->Node {
-        // we use the same logic
-        self.eat(TokenType::While);
-        let condition = Box::new(self.parse_expr());
-        let block = Box::new(self.parse_block());
-        return Node::While { condition, block }
-    }
-    fn parse_func_decl(&mut self)->Node {
-        // we use  the same logic
-        self.eat(TokenType::Func);
-        let name = self.eat(TokenType::Id).span.clone();
-        self.eat(TokenType::Lparen);
-        let mut parameters= Vec::new();
-        if self.peek().tk_type != TokenType::Rparen {
-            let id = self.eat(TokenType::Id).span.clone();
-            self.eat(TokenType::Colon);
-            let paramtype = self.eat(self.tokens[self.idx].tk_type.clone()).tk_type.clone();
-            parameters.push((id,paramtype));
-            while self.peek().tk_type == TokenType::Comma {
-                self.eat(TokenType::Comma);
-                let id = self.eat(TokenType::Id).span.clone();
-                self.eat(TokenType::Colon);
-                let paramtype = self.eat(self.tokens[self.idx].tk_type.clone()).tk_type.clone();
-                parameters.push((id,paramtype));
-            }
-        }
-        self.eat(TokenType::Rparen);
-        self.eat(TokenType::Colon);
-        let rettype = self.eat(self.tokens[self.idx].tk_type.clone()).tk_type.clone();
-        let block = self.parse_block();
-        return Node::Func { name, parameters, rettype, block: Box::new(block) }
-    }
-    fn parse_return(&mut self)->Node {
-        // we use the same logic
-        self.eat(TokenType::Return);
-        let expr = self.parse_expr();
-        return Node::Return { expr: Box::new(expr) }
-    }
-    fn parse_block(&mut self)->Node {
-        // and the same logic
-        self.eat(TokenType::Lbrace);
+
+    fn parse_block(&mut self) -> Node {
+        self.eat(TkType::Lbrace);
+
         let mut nodes = Vec::new();
-        while self.peek().tk_type != TokenType::Rbrace && self.peek().tk_type != TokenType::Eof {
+
+        while self.peek().tk_type != TkType::Rbrace && self.peek().tk_type != TkType::Eof {
             nodes.push(self.parse_decl());
         }
-        self.eat(TokenType::Rbrace);
-        return Node::Block { nodes }
-    }
-    
 
-    fn parse_expr(&mut self)->Node {
-        return self.parse_eq()
+        self.eat(TkType::Rbrace);
+
+        return Node::Block(nodes);
     }
-    fn parse_eq(&mut self)->Node {
-        let mut left = self.parse_comparation();
-        while  [TokenType::Eq,TokenType::Ne].contains(&self.peek().tk_type) {
-            let op = self.peek().tk_type.clone();
-            self.idx += 1;
-            let right = self.parse_comparation();
-            left = Node::BinOp { left: Box::new(left), op: (|opr:TokenType| {
-                match opr {
-                    TokenType::Eq => 8,
-                    TokenType::Ne => 9,
-                    _ => panic!("error: some inexplicable error ocurred")
+
+    fn parse_func_decl(&mut self) -> Node {
+        let mut is_extern = false;
+        if self.peek().tk_type == TkType::Extern {
+            self.eat(TkType::Extern);
+            is_extern = true
+        }
+
+        self.eat(TkType::Func);
+
+        let name_tk = self.eat(TkType::Id);
+
+        self.eat(TkType::Lparen);
+
+        let mut params = Vec::new();
+
+        if self.peek().tk_type != TkType::Rparen {
+            let id = self.eat(TkType::Id);
+            self.eat(TkType::Colon);
+            let ptype = self.lexer.next_token().tk_type; // parameter type
+            params.push((id.start, id.end, ptype));
+
+            while self.peek().tk_type == TkType::Comma {
+                self.eat(TkType::Comma);
+                
+                if self.peek().tk_type == TkType::VaArgs {
+                    self.eat(TkType::VaArgs);
+                    params.push((0,0,TkType::VaArgs));
+                    break;
                 }
-            })(op), right: Box::new(right) }
+
+                let id = self.eat(TkType::Id);
+                self.eat(TkType::Colon);
+                let ptype = self.lexer.next_token().tk_type;
+                params.push((id.start, id.end, ptype));
+            }
         }
-        return left
-    }
-    fn parse_comparation(&mut self)->Node {
-        let mut left = self.parse_term();
-        while  [TokenType::Gt,
-                TokenType::Ge,
-                TokenType::Lt,
-                TokenType::Le].
-                contains(&self.peek().tk_type)
-        {
-            let op = self.peek().tk_type.clone();
-            self.idx += 1;
-            let right = self.parse_term();
-            left = Node::BinOp { left: Box::new(left), op: (|opr:TokenType| {
-                match opr {
-                    TokenType::Lt => 4,
-                    TokenType::Gt => 5,
-                    TokenType::Le => 6,
-                    TokenType::Ge => 7,
-                    _ => panic!("error: some inexplicable error ocurred")
-                }
-            })(op), right: Box::new(right) }
-        }
-        return left
-    }
-    fn parse_term(&mut self)->Node {
-        let mut left = self.parse_factor();
-        while [TokenType::Plus,TokenType::Minus].contains(&self.peek().tk_type) {
-            let op = self.peek().tk_type.clone();
-            self.idx += 1;
-            left = Node::BinOp { left: Box::new(left), op: (|opr:TokenType| {
-                match opr {
-                    TokenType::Plus => 0,
-                    TokenType::Minus => 1,
-                    _ => panic!("error: some inexplicable error ocurred")
-                }
-            })(op), right: Box::new(self.parse_factor()) }
-        }
-        return left;
-    }
-    fn parse_factor(&mut self)->Node {
-        let mut left = self.parse_or();
-        while [TokenType::Star,TokenType::Slash].contains(&self.peek().tk_type) {
-            let op = self.peek().tk_type.clone();
-            self.idx += 1;
-            left = Node::BinOp { left: Box::new(left), op: (|opr:TokenType| {
-                match opr {
-                    TokenType::Star => 2,
-                    TokenType::Slash => 3,
-                    _ => panic!("error: some inexplicable error ocurred")
-                }
-            })(op), right: Box::new(self.parse_or()) }
-        }
-        return left;
-    }
-    fn parse_or(&mut self)->Node {
-        let mut left = self.parse_and();
-        while self.peek().tk_type == TokenType::Or {
-            self.idx += 1;
-            left = Node::BinOp { left: Box::new(left), op: 11, right: Box::new(self.parse_and()) }
-        }
-        return left;
-    }
-    fn parse_and(&mut self)->Node {
-        let mut left = self.parse_unary();
-        while self.peek().tk_type == TokenType::And {
-            self.idx += 1;
-            left = Node::BinOp { left: Box::new(left), op: 10, right: Box::new(self.parse_unary()) }
-        }
-        return left;
-    }
-    fn parse_unary(&mut self)->Node {
-        if self.peek().tk_type == TokenType::Minus {
-            let op = self.peek().tk_type.clone();
-            self.idx += 1;
-            return Node::Unary { op: if op == TokenType::Not{1} else {0}, value: Box::new(self.parse_unary()) }
-        } else {
-            return self.parse_call()
-        }
-    }
-    fn parse_call(&mut self)->Node {
-        let mut left = self.parse_primary();
+
+        self.eat(TkType::Rparen);
         
-        loop {
-            if self.peek().tk_type == TokenType::Lparen {
-                self.idx += 1;
-                let mut args = Vec::new();
-                if self.peek().tk_type != TokenType::Rparen {
+        self.eat(TkType::Colon);
+
+        let rtype = self.lexer.next_token().tk_type;
+
+        if is_extern {
+            return Node::FuncDecl { 
+                name_s: name_tk.start, name_e: name_tk.end, 
+                args: params, 
+                rtype, 
+                body: None, 
+                is_extern: true
+            }
+        }
+
+        let block = self.parse_block();
+
+        return Node::FuncDecl { 
+            name_s: name_tk.start, name_e: name_tk.end, 
+            args: params, 
+            rtype, 
+            body: Some(Box::new(block)), 
+            is_extern: false 
+        }
+    }
+
+    fn parse_return(&mut self) -> Node {
+        self.eat(TkType::Return);
+
+        let expr = self.parse_expr();
+
+        return Node::Return(Box::new(expr));
+    }
+
+    fn parse_while(&mut self) -> Node {
+        self.eat(TkType::While);
+
+        let expr = self.parse_expr();
+
+        let body = self.parse_block();
+
+        return Node::While {
+            cond: Box::new(expr),
+            body: Box::new(body)
+        }
+    }
+
+    fn parse_if(&mut self) -> Node {
+        self.eat(TkType::If);
+
+        let expr = self.parse_expr();
+
+        let then_br = self.parse_block();
+
+        if self.peek().tk_type == TkType::Else {
+            self.lexer.next_token();
+
+            if self.peek().tk_type == TkType::If {
+                let elif = self.parse_if();
+
+                return Node::If {
+                    cond: Box::new(expr),
+                    then_br: Box::new(then_br),
+                    else_br: Some(Box::new(elif))
+                }
+            }
+            let else_br = self.parse_block();
+
+            return Node::If {
+                cond: Box::new(expr),
+                then_br: Box::new(then_br),
+                else_br: Some(Box::new(else_br))
+            }
+        }
+
+        return Node::If {
+            cond: Box::new(expr),
+            then_br: Box::new(then_br),
+            else_br: None
+        }
+    }
+
+    // expretions //
+
+    fn parse_expr(&mut self) -> Node {
+        return self.parse_or()
+    }
+
+    fn parse_or(&mut self) -> Node {
+        let mut left = self.parse_and();
+
+        while self.peek().tk_type == TkType::Or {
+            let op = self.lexer.next_token().tk_type;
+
+            left = Node::BinOp {
+                left: Box::new(left),
+                right: Box::new(self.parse_and()),
+                op
+            }
+        }
+        
+        return left;
+    }
+
+    fn parse_and(&mut self) -> Node {
+        let mut left = self.parse_eq();
+
+        while self.peek().tk_type == TkType::And {
+            let op = self.lexer.next_token().tk_type;
+
+            left = Node::BinOp {
+                left: Box::new(left),
+                right: Box::new(self.parse_eq()),
+                op
+            }
+        }
+        
+        return left;
+    }
+
+    fn parse_eq(&mut self) -> Node {
+        let mut left = self.parse_comparation();
+
+        while self.peek().tk_type == TkType::Eq || 
+              self.peek().tk_type == TkType::Ne 
+        {
+            let op = self.lexer.next_token().tk_type;
+
+            left = Node::BinOp {
+                left: Box::new(left),
+                right: Box::new(self.parse_comparation()),
+                op
+            }
+        }
+        
+        return left;
+    }
+
+    fn parse_comparation(&mut self) -> Node {
+        let mut left = self.parse_term();
+
+        while self.peek().tk_type == TkType::Lt || 
+              self.peek().tk_type == TkType::Gt ||
+              self.peek().tk_type == TkType::Le ||
+              self.peek().tk_type == TkType::Ge 
+        {
+            let op = self.lexer.next_token().tk_type;
+
+            left = Node::BinOp {
+                left: Box::new(left),
+                right: Box::new(self.parse_term()),
+                op
+            }
+        }
+        
+        return left;
+    }
+
+    fn parse_term(&mut self) -> Node {
+        let mut left = self.parse_factor();
+
+        while self.peek().tk_type == TkType::Plus || 
+              self.peek().tk_type == TkType::Minus 
+        {
+            let op = self.lexer.next_token().tk_type;
+
+            left = Node::BinOp {
+                left: Box::new(left),
+                right: Box::new(self.parse_factor()),
+                op
+            }
+        }
+        
+        return left;
+    }
+
+    fn parse_factor(&mut self) -> Node {
+        let mut left = self.parse_unary();
+
+        while self.peek().tk_type == TkType::Star || 
+              self.peek().tk_type == TkType::Slash 
+        {
+            let op = self.lexer.next_token().tk_type;
+
+            left = Node::BinOp {
+                left: Box::new(left),
+                right: Box::new(self.parse_unary()),
+                op
+            }
+        }
+        
+        return left;
+    }
+
+    fn parse_unary(&mut self) -> Node {
+        if self.peek().tk_type == TkType::Not || self.peek().tk_type == TkType::Minus {
+            let tk = self.lexer.next_token().tk_type;
+            return Node::Unary { 
+                right: Box::new(self.parse_unary()), 
+                op: tk 
+            }
+        } else {
+            return self.parse_func_call();
+        }
+    }
+
+    fn parse_func_call(&mut self) -> Node {
+        let mut left = self.parse_primary();
+
+        if self.peek().tk_type == TkType::Lparen {
+            self.lexer.next_token();
+
+            let mut args = Vec::new();
+
+            if self.peek().tk_type != TkType::Rparen {
+                let expr = self.parse_expr();
+                args.push(expr);
+
+                while self.peek().tk_type == TkType::Comma {
+                    self.lexer.next_token();
+
                     let expr = self.parse_expr();
                     args.push(expr);
-                    while self.peek().tk_type == TokenType::Comma {
-                        self.eat(TokenType::Comma);
-                        let expr = self.parse_expr();
-                        args.push(expr);
-                    }
                 }
-                self.eat(TokenType::Rparen);
-                left = Node::Call { name: Box::new(left), args }
-            } else {
-                break;
             }
+            self.eat(TkType::Rparen);
+            left = Node::FuncCall {
+                name: Box::new(left),
+                args
+            };
         }
+        
         return left;
     }
-    fn parse_primary(&mut self)->Node {
-        match self.peek().tk_type.clone() {
-            TokenType::IntL(n) => {
-                self.idx += 1;
-                return Node::Lit(Literal::Int(n))
+
+    fn parse_primary(&mut self) -> Node {
+        match self.peek().tk_type {
+            TkType::IntL => {
+                let tk = self.lexer.next_token();
+                return Node::Integer(self.source.get(tk.start..tk.end).unwrap().parse().unwrap());
             }
-            TokenType::FloatL(n) => {
-                self.idx += 1;
-                return Node::Lit(Literal::Float(n));
+            TkType::FloatL => {
+                let tk = self.lexer.next_token();
+                return Node::Float(self.source.get(tk.start..tk.end).unwrap().parse().unwrap());
             }
-            TokenType::BoolL(b) => {
-                self.idx += 1;
-                return Node::Lit(Literal::Bool(b))
+            TkType::StringL => {
+                let tk = self.lexer.next_token();
+                return Node::Str(tk.start, tk.end);
             }
-            TokenType::StringL(s) => {
-                self.idx += 1;
-                return Node::Lit(Literal::Str(s))
+            TkType::False => {
+                self.lexer.next_token();
+                return Node::Bool(false)
             }
-            TokenType::Id => {
-                let id = self.peek().span.clone();
-                self.idx += 1;
-                match self.peek().tk_type {
-                    TokenType::Assing => {
-                        self.idx += 1;
-                        let expr = self.parse_expr();
-                        return Node::VarReassing { name: id, value: Box::new(expr) }
-                    }
-                    _ => {
-                        return Node::Id(id)
+            TkType::True => {
+                self.lexer.next_token();
+                return Node::Bool(true)
+            }
+            TkType::Id => {
+                let id = self.lexer.next_token();
+                if self.peek().tk_type == TkType::Assing {
+                    self.lexer.next_token();
+
+                    let expr = self.parse_expr();
+
+                    return Node::VarReassing { 
+                        name_s: id.start, 
+                        name_e: id.end, 
+                        value: Box::new(expr) 
                     }
                 }
+                return Node::Id(id.start, id.end)
             }
-            TokenType::Lparen => {
-                self.idx += 1;
-                let expr = self.parse_expr();
-                self.eat(TokenType::Rparen);
+            TkType::Lparen => {
+                let expr;
+                self.eat(TkType::Lparen);
+                expr = self.parse_expr();
+                self.eat(TkType::Rparen);
+
                 return expr;
             }
-            TokenType::NewVector => {
-                self.eat(TokenType::NewVector);
-                self.eat(TokenType::Lparen);
-                if [TokenType::BoolT,TokenType::IntT,TokenType::FloatT,TokenType::StringT].contains(&self.peek().tk_type) {
-                    let vectype = self.peek().tk_type.clone();
-                    self.eat(vectype.clone());
-                    self.eat(TokenType::Rparen);
-                    return Node::NewVector { vectype }
-                } else { panic!("error: unexpected type `{:?}` for vector ",self.peek().tk_type) }
-            }
-            TokenType::FreeVector => {
-                self.eat(TokenType::FreeVector);
-                self.eat(TokenType::Lparen);
-                let vector = self.eat(TokenType::Id).clone();
-                self.eat(TokenType::Rparen);
-                return Node::FreeVector { vector }
-            }
-            TokenType::GetVector => {
-                self.eat(TokenType::GetVector);
-                self.eat(TokenType::Lparen);
-                let vector = self.eat(TokenType::Id).clone();
-                self.eat(TokenType::Comma);
-                let index = self.peek().span.parse::<u64>().expect("error: expected an integer for the index");
-                self.idx += 1;
-                self.eat(TokenType::Rparen);
-                return Node::GetVector { vector, index }
-            }
-            TokenType::PushVector => {
-                self.eat(TokenType::PushVector);
-                self.eat(TokenType::Lparen);
-                let vector = self.eat(TokenType::Id).clone();
-                self.eat(TokenType::Comma);
-                let elem = Box::new(self.parse_expr());
-                self.eat(TokenType::Rparen);
-                return Node::PushVector { vector, elem }
-            }
-            TokenType::Cblock(code) => {
-                self.idx += 1;
-                return Node::Cblock { code }
+            TkType::Lbrace => {
+                return self.parse_block()
             }
             _ => {
-                panic!("error: unexpected primary token type `{:?}`",self.peek().tk_type)
+                todo!("case for {:?} in parse_primary not yet implemented", self.peek().tk_type)
             }
         }
     }
-    pub fn parse_program(&mut self)->Program {
-        let mut nodes = Vec::new();
-        while self.idx < self.tokens.len() {
-            if self.peek().tk_type == TokenType::Eof {break;}
-            nodes.push(self.parse_decl());
+
+    // main function
+    pub fn parse(&mut self) {
+        while self.peek().tk_type != TkType::Eof {
+            let node = self.parse_decl();
+            self.nodes.push(node);
         }
-        return Program { nodes }
     }
 }

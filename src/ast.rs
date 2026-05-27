@@ -1,140 +1,71 @@
-/*
-in this file i define all the nodes, this is really simple so i hope you understand 
-without extense documentiation
-*/
+//! in this file is implemented the AST as an enumeration
 
-#![allow(dead_code,unused_imports)]
+use std::fmt::Debug;
 
-use crate::lexer::{Tk, TokenType};
+use crate::lexer::{Lexer, TkType};
 
-#[derive(Debug,Clone,PartialEq)]
-pub enum Literal {
-    Int (usize),
-    Float (f64),
-    Str (String),
-    Bool (bool)
-}
-
-#[derive(Debug,Clone,PartialEq)]
+// enum representing a node in the AST
+#[derive(Debug, Clone)]
 pub enum Node {
-    Lit (Literal),
+    Integer(usize),
+    Float(f64),
+    Bool(bool),
+    Str(usize, usize), // start and end
+    Id(usize, usize), // start and end
     BinOp {
-        left: Box<Node>,
-        op: u8,
-        right: Box<Node>
+        left:  Box<Node>,
+        right: Box<Node>,
+        op:    TkType
     },
     Unary {
-        op: u8,
-        value: Box<Node>
+        right: Box<Node>,
+        op:    TkType
     },
     VarDecl {
-        vartype: TokenType,
-        name: String,
-        value: Box<Node>
+        name_s: usize, // name start
+        name_e: usize, // name end 
+        vtype:  TkType, // variable type
+        value:  Box<Node> // the performance cost is acceptable
     },
     VarReassing {
-        name: String,
-        value: Box<Node>
+        name_s: usize, name_e: usize,
+        value:  Box<Node>
     },
-    If {
-        cond: Box<Node>,
-        block: Box<Node>,
-        else_block: Option<Box<Node>>
+    Block(Vec<Node>),
+    FuncDecl {
+        name_s:    usize, name_e: usize,
+        args:      Vec<(usize, usize, TkType)>,
+        rtype:     TkType,
+        body:      Option<Box<Node>>, // None in case if is an external function
+        is_extern: bool
     },
-    Func {
-        name: String,
-        parameters: Vec<(String,TokenType)>,
-        rettype: TokenType,
-        block: Box<Node>
-    },
-    Call {
+    Return(Box<Node>),
+    FuncCall {
         name: Box<Node>,
-        args: Vec<Node>
-    },
-    Return {
-        expr: Box<Node>
+        args: Vec<Node>,
     },
     While {
-        condition: Box<Node>,
-        block: Box<Node>
+        cond: Box<Node>,
+        body: Box<Node>
     },
-    Block {
-        nodes: Vec<Node>
-    },
-    Id (String),
-    NewVector {
-        vectype: TokenType
-    },
-    FreeVector {
-        vector: Tk
-    },
-    GetVector {
-        vector: Tk,
-        index: u64
-    },
-    PushVector {
-        vector: Tk,
-        elem: Box<Node>
-    },
-    Cblock {
-        code: String
+    If {
+        cond:    Box<Node>,
+        then_br: Box<Node>,
+        else_br: Option<Box<Node>>
     }
 }
 
-#[derive(Debug)]
-pub struct Program {
-    pub nodes: Vec<Node>
+// the parser
+pub struct Parser {
+    pub source: String,
+    pub nodes:  Vec<Node>,
+    pub lexer:  Lexer
 }
 
-impl Program {
-    fn aux_size(&self,node:&Node)->usize {
-        match node {
-            Node::Call { name, args } => {
-                let mut aux = 0;
-                for nod in args {
-                    aux += self.aux_size(nod);
-                }
-                return self.aux_size(name) * aux
-            }
-            Node::BinOp { left, op, right } => {
-                return self.aux_size(left) + self.aux_size(right) + size_of_val(op)
-            }
-            Node::Block { nodes } => {
-                let mut aux = 0;
-                for nod in nodes {
-                    aux += self.aux_size(nod);
-                }
-                return aux;
-            }
-            Node::Func { name: _ , parameters, rettype: _, block } => {
-                let mut aux = 0;
-                for _ in parameters {
-                    aux += size_of::<String>() + size_of::<TokenType>();
-                }
-                return size_of::<String>() + aux + size_of::<TokenType>() + self.aux_size(block)
-            }
-            Node::Id(_) => size_of::<String>(),
-            Node::If { cond, block, else_block } => {
-                return self.aux_size(cond) + self.aux_size(block) + size_of_val(else_block)
-            }
-            Node::While { condition, block } => return self.aux_size(condition) + self.aux_size(block),
-            Node::Lit(l) => size_of_val(l),
-            Node::Return { expr } => self.aux_size(expr),
-            Node::Unary { op, value } => size_of_val(op) + self.aux_size(value),
-            Node::VarDecl { vartype, name, value } => size_of_val(vartype) + size_of_val(name) + self.aux_size(value),
-            Node::VarReassing { name, value } => self.aux_size(value) + size_of_val(name),
-            Node::NewVector { vectype:_ } => return size_of::<TokenType>(),
-            Node::FreeVector { vector:_ } => return size_of::<Tk>(),
-            Node::GetVector { vector: _, index: _ } => return size_of::<Tk>() + size_of::<u64>(),
-            Node::PushVector { vector: _, elem } => return size_of::<Tk>() + self.aux_size(elem),
-            Node::Cblock { code: _ } => return size_of::<String>()
+impl Parser {
+    pub fn dbg_print(&self) {
+        for n in &self.nodes {
+            eprintln!("{n:?}");
         }
-    }
-    pub fn size(&self)->usize {
-        let mut aux = 0;
-        for node in &self.nodes {
-            aux += self.aux_size(node);
-        }
-        return aux
     }
 }

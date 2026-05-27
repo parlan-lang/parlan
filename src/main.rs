@@ -2,52 +2,78 @@
 this is the main file, where the pipeline starts and ends
 */
 
+//#![allow(unused)]
+
+// rewrite
 mod lexer;
 mod parser;
 mod ast;
 mod backend;
 
-use lexer::*;
-use parser::*;
-use backend::*;
 use std::io::Write;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::fs;
 use std::process;
 
+use crate::lexer::TkType;
 
+const HELP_MSG: &'static str = r#"
+Options: 
+    --help              Display this message
+    --version           Print version info and exit
+    -cc <CC>            Use CC to compile the C generated code (by default, clang is selected)
+    -time-report        Prints a simple report 
+    -o <FILENAME>       Write output to FILENAME
+
+Debug Options: 
+    --dbg-lexer-only    Only runs the lexer and prints the tokens, then exit
+    --dbg_parsing_only  Only runs the lexer and parser and prints the tokens and AST, then exit
+"#;
 
 fn main() {
-    // these variables are used to know if the user wants debugs prints, time logs or only the tokens
-    // this is especially for development
-    let mut debug = false;
-    let mut time = false;
-    let mut gen_exe = false;
-    let mut using_gcc = false;
+    // debug options
+    let mut dbg_lex_only = false;
+    let mut dbg_parsing_only = false;
+    
+    // compiler options
     let mut source_file = "";
     let mut output_file = "";
+    let mut cc = "clang";
+    let mut emit_c = false;
+    let mut time_report = false;
+
     let args = std::env::args().collect::<Vec<String>>(); // we collect the command line arguments into a vector
     
-    /*
-    here, i use a infinite loop instead of a for loop because if we use a for loop
-    we cannot advance the index to access the next argument.
-    */
+    // handling the command line arguments
     let mut i: usize = 1;
     loop {
-        if i == args.len() { break; }
+        if i >= args.len() { break; }
         let carg = args[i].as_str();
         match carg {
-            "--debug" => {
-                debug = true;
+            "--dbg-lexer-only" => {
+                dbg_lex_only = true;
             }
-            "--time" => {
-                time = true;
+            "--dbg-parsing-only" => {
+                dbg_parsing_only = true;
             }
-            "--compile" => {
-                gen_exe = true;
+            "-cc" => {
+                i += 1;
+                cc = args[i].as_str();
             }
-            "--gcc" => {
-                using_gcc = true
+            "-emit-c" => {
+                emit_c = true;
+            }
+            "-time-report" => {
+                time_report = true;
+            }
+            "--version" => {
+                println!("parlan v0.2");
+                return;
+            }
+            "--help" => {
+                println!("usage: parlan [OPTIONS] INPUT");
+                println!("{}", HELP_MSG);
+                return;
             }
             "-o" => {
                 i += 1;
@@ -60,63 +86,73 @@ fn main() {
         i += 1;
     }
 
-    /*
-    i decided to use closures because is more tiny, but you can use a normal function instead 
-    */
-    let lex_time = |time_lex: std::time::Duration, lex: &Lexer| {
-        if debug { println!("{:#?} >> {}", lex.tokens,time_lex.as_secs_f64()) }
-        else if time { println!("lexing time: {:.5} (tokens generated: {}; lines: {})",time_lex.as_secs_f64(), lex.tokens.len(), lex.curr_line) }
-    };
-    let parse_time = |time_parse: std::time::Duration, program: &ast::Program| {
-        if debug { println!("{:#?} >> {}", program.nodes,time_parse.as_secs_f64()) }
-        else if time { println!("parsing time: {:.5} (roots generated: {}, size: {:.10} mb)",time_parse.as_secs_f64(), program.nodes.len(), program.size() as f64 / 1_048_576.0) }
-    };
-    let codegen_time = |time_codegen: Duration, be: &Backend| {
-        if time { println!("codegen time: {:.5} (lines generated: {})",time_codegen.as_secs_f64(),be.c.lines().count() - crate::backend::BOILERPLATE.lines().count()) }
-    };
+    let time_report_parsing_s;
+    let time_report_parsing;
+    let time_report_backend_s;
+    let time_report_backend;
 
-    let source = fs::read_to_string(source_file).unwrap(); // we read the file into a String
-    let mut start = Instant::now(); // start the timer
-    let mut lex = Lexer::new(source); // we initialize a new Lexer instance
-    lex.lexer(); // and we tokenize the source code into a vector of tokens
-    let time_lex = start.elapsed(); // now we stop the clock and see how much time it took to tokenize
-
-
-    // now we do the same process as above but for the generation of the AST
-    start = Instant::now();
-    let mut pars = Parser::new(lex.tokens.clone());
-    let program = pars.parse_program();
-    let time_parse = start.elapsed();
-
-    // and the same process!
-    start = Instant::now();
-    let mut be = Backend::new();
-    be.emit_c(&program);
-    let time_codegen = start.elapsed();
-
-    // now we call all of our debug functions (well, actually closures)
-    lex_time(time_lex,&lex);
-    parse_time(time_parse,&program);
-    codegen_time(time_codegen,&be);
-    if time {
-        println!("total time: {}", time_lex.as_secs_f32() + time_parse.as_secs_f32() + time_codegen.as_secs_f32());
+    let source = fs::read_to_string(source_file).unwrap();
+    
+    if dbg_lex_only {
+        let mut lexer = lexer::Lexer::new(source.clone());
+        loop {
+            let tk = lexer.next_token();
+            tk.print(&source);
+            if tk.tk_type == TkType::Eof || tk.tk_type == TkType::Err { break; }
+        }
+        return;
     }
 
-    // and we write all the generated code into the output file (out.c)
-    let mut out = fs::File::create(format!("{}.c", if output_file != "" {output_file} else {"out"}).as_str()).expect("cannot create file");
-    out.write(be.c.as_bytes()).expect("cannot write the file");
+    let mut parser = ast::Parser::new(source.clone());
+    time_report_parsing_s = Instant::now();
+    parser.parse();
+    time_report_parsing = time_report_parsing_s.elapsed();
+    
+    if dbg_parsing_only {
+        parser.dbg_print();
+        return;
+    }
 
-    if gen_exe && using_gcc {
-        let output = process::Command::new("gcc") // we call gcc or clang
-                             .args([format!("{}.c", if output_file != "" {output_file} else {"out"}).as_str(),"-o","out.exe"]) // we pass the command arguments
-                             .output()
-                             .expect("failed to compile output c program or gcc doesn't exits in PATH. don't use `--gcc` to use clang instead");
-        println!("output: {}", String::from_utf8_lossy(&output.stderr));
-    } else if gen_exe && !using_gcc {
-        let output = process::Command::new("clang")
-                             .args([format!("{}.c", if output_file != "" {output_file} else {"out"}).as_str(),"-o","out.exe"])
-                             .output()
-                             .expect("failed to compile output c program, or clang doesn't exits in PATH. use `--gcc` to use gcc instead");
-        println!("output: {}", String::from_utf8_lossy(&output.stderr));
+    let mut backend = backend::Backend::new(source);
+    time_report_backend_s = Instant::now();
+    let c = backend.emit_c(&parser);
+    time_report_backend = time_report_backend_s.elapsed();
+
+    if emit_c {
+        let mut file = fs::File::create(output_file).unwrap();
+        file.write(c.as_bytes()).expect("error: could not write to file");
+        return;
+    }
+
+    let mut file = fs::File::create("__temp__parlan.c").unwrap();
+    file.write(c.as_bytes()).expect("error: could not write to file");
+
+    let cc_out = process::Command::new(cc)
+                          .args(["-o",format!("{output_file}").as_str(), "__temp__parlan.c"])
+                          .output()
+                          .expect("[ERROR]: error while calling the C compiler.\n");
+    if !process::ExitStatus::success(&cc_out.status) {
+        eprintln!("{cc} output (stderr):");
+        eprintln!("{}", String::from_utf8_lossy(&cc_out.stderr));
+        eprintln!("[ERROR] could not finish compilation");
+    }                    
+
+    fs::remove_file("__temp__parlan.c").expect("error: could not remove temporal file"); // eliminate the temporal file
+
+    // show time report (if requested)
+    if time_report {
+        eprintln!(r#"
+===-------------------------------------------------------------------------===
+                              Parlan Time Report
+===-------------------------------------------------------------------------===
+    Total Execution Time: {:.5} seconds
+
+    --- Time ---        --- Name ---
+    {:.5} sec           front end
+    {:.5} sec           backend
+"#, 
+        time_report_backend.as_secs_f64() + time_report_parsing.as_secs_f64(),
+        time_report_parsing.as_secs_f64(),
+        time_report_backend.as_secs_f64());
     }
 }

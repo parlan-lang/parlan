@@ -1,0 +1,11 @@
+func main(): int {
+    var i: int = 9
+    while true or false {
+        while true and true {
+            i = i + 1
+        }
+    }
+
+
+    return 0
+}
