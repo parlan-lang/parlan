@@ -22,7 +22,7 @@ git clone https://github.com/parlan-lang/parlan.git
 cd parlan
 ```
 
-2. Create a source file at the root named `hello.par` and paste this:
+1. Create a source file at the root named `hello.par` and paste this:
 
 ```Parlan
 func main(): int {
