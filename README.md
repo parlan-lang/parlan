@@ -2,40 +2,28 @@
 
 Parlan is an open-source programming language designed to make programming simpler. 
 
-##  Overview
 
-Parlan was designed to be a simple, reliable and beginner-friendly programming language.  
-Parlan archives this because it does not "reinvent the wheel" with the syntax or semantics, it simply polishes what already exists  
+## Overview
+
+Parlan was designed to be a simple, reliable, and beginner-friendly programming language.  
+Parlan achieves this because it does not "reinvent the wheel" with syntax or semantics—it simply polishes what already exists.  
+
 
 ## Documentation
 
-The language and compiler documentation can be founded at the [`docs/`](./docs/) directory
+Everything you need to know about Parlan is located in our documentation **[here](./docs/index.md)**
 
-## Getting Started
 
-To try out Parlan, follow these steps:
+## Why Parlan?
 
-1. Clone the repository and navigate into it:
+Honestly, there is no groundbreaking reason.
 
-```Bash
-git clone https://github.com/parlan-lang/parlan.git
-cd parlan
-```
+Parlan isn't trying to be the next "X-language killer."  
+Parlan isn't trying to become the new standard for writing software.  
+Parlan just exists. If you want to use it, that's awesome. If not, that's totally fine too.
 
-1. Create a source file at the root named `hello.par` and paste this:
 
-```Parlan
-func main(): int {
-        // printing
-        return 0;
-}
-```
+## Contributing
 
-3. Run the compiler executing the following command in your terminal:
-
-```Bash
-cargo run -- hello.par --time --compile
-```
-
-*The --time flag will display the execution time and debug information to show you exactly how the compiler processes your code.*
-*The --compile flag will compile the output file with Clang (if you use GCC use --gcc flag)*
+Thank you for considering contributing! We truly appreciate community support.  
+Whether you are fixing a bug, optimizing performance, or fixing a typo in the docs, please check out our **[Contribution Guidelines](CONTRIBUTING.md)** before getting started.
