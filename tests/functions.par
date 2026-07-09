@@ -1,31 +1,31 @@
-extern func printf(fmt: str, ...): int
+extern func printf(fmt: str, ...): int;
 
-func square(n: int): int {
-    return n * n
+func square(n: float): float {
+    return n * n;
 }
 
-func fib(n: int): int {
-    if n < 2 {
-        return n
+func fib(n: float): float {
+    if n < 2.0 {
+        return n;
     }
-    return fib(n - 1) + fib(n - 2)
+    return fib(n - 1.0) + fib(n - 2.0);
 }
 
-func sqrt(n: int, prec: int): float {
-    var x: float = n / 2
-    var i: int = 0
+func sqrt(n: float, prec: int): float {
+    var x: float = n / 2.0;
+    var i: int = 0;
     while i < prec {
-        x = 0.5 * (x + n / x)
+        x = 0.5 * (x + n / x);
     }
-    return x
+    return x;
 }
 
 func main(): int {
-    var fib5: int = fib(5)
-    var sqfib5: int = square(fib5)
-    var sqrtsqfib5: float = sqrt(sqfib5, 10)
+    var fib5: float = fib(5.0);
+    var sqfib5: float = square(fib5);
+    var sqrtsqfib5: float = sqrt(sqfib5, 10);
 
-    printf("%lf\n", sqrtsqfib5)
+    printf("%lf\n", sqrtsqfib5);
 
-    return 0
+    return 0;
 }

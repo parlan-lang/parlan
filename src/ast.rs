@@ -65,7 +65,7 @@ pub struct Parser {
 impl Parser {
     pub fn dbg_print(&self) {
         for n in &self.nodes {
-            eprintln!("{n:?}");
+            eprintln!("{n:#?}");
         }
     }
 }

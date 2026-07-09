@@ -1,6 +1,6 @@
-var x: int = 9
-var y: float = 10
-var wow: str = "hello world"
+var x: int = 9;
+var y: float = 10;
+var wow: str = "hello world";
 
 
 
@@ -9,4 +9,4 @@ var wow: str = "hello world"
 
 
 
-var djfnskdjfnkejfnrkjnfksrjfkwrjbgkwbrg: bool = false
+var djfnskdjfnkejfnrkjnfksrjfkwrjbgkwbrg: bool = false;

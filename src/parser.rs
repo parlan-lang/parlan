@@ -21,7 +21,8 @@ impl Parser {
         if self.peek().tk_type == ttype {
             return self.lexer.next_token();
         } else {
-            panic!("[ERROR] expected token `{:?}` found `{:?}`", ttype, self.peek().tk_type)
+            eprintln!("[ERROR] expected token `{:?}` found `{:?}`", ttype, self.peek().tk_type);
+            panic!()
         }
     }
 
@@ -34,7 +35,11 @@ impl Parser {
             TkType::While => self.parse_while(),
             TkType::If => self.parse_if(),
             TkType::Var => self.parse_var_decl(),
-            _ => self.parse_expr()
+            _ => {
+                let node = self.parse_expr();
+                self.eat(TkType::Semicolon);
+                node
+            }
         }
     }
 
@@ -44,14 +49,20 @@ impl Parser {
         self.eat(TkType::Var);
         
         let name_tk = self.eat(TkType::Id);
+
+        let mut vtype = TkType::Err;
         
-        self.eat(TkType::Colon);
+        if self.peek().tk_type == TkType::Colon {
+            self.eat(TkType::Colon);
         
-        let vtype = self.lexer.next_token().tk_type; // we call the lexer directly
+            vtype = self.lexer.next_token().tk_type; // we call the lexer directly
+        }
         
         self.eat(TkType::Assing);
 
         let expr = self.parse_expr();
+
+        self.eat(TkType::Semicolon);
 
         return Node::VarDecl {
             name_s: name_tk.start, 
@@ -100,8 +111,8 @@ impl Parser {
                 self.eat(TkType::Comma);
                 
                 if self.peek().tk_type == TkType::VaArgs {
-                    self.eat(TkType::VaArgs);
-                    params.push((0,0,TkType::VaArgs));
+                    let tk = self.eat(TkType::VaArgs);
+                    params.push((tk.start,tk.end,TkType::VaArgs));
                     break;
                 }
 
@@ -119,6 +130,8 @@ impl Parser {
         let rtype = self.lexer.next_token().tk_type;
 
         if is_extern {
+            self.eat(TkType::Semicolon);
+            
             return Node::FuncDecl { 
                 name_s: name_tk.start, name_e: name_tk.end, 
                 args: params, 
@@ -143,6 +156,8 @@ impl Parser {
         self.eat(TkType::Return);
 
         let expr = self.parse_expr();
+
+        self.eat(TkType::Semicolon);
 
         return Node::Return(Box::new(expr));
     }

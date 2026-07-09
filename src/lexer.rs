@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TkType {
 // Keywords
     If,
@@ -22,6 +22,7 @@ pub enum TkType {
     Lbrace,
     Rbrace,
     Colon,
+    Semicolon,
     Comma,
 
 // Operators
@@ -142,6 +143,7 @@ impl Lexer {
             "{" => TkType::Lbrace,
             "}" => TkType::Rbrace,
             ":" => TkType::Colon,
+            ";" => TkType::Semicolon,
             "," => TkType::Comma,
             "+" => TkType::Plus,
             "-" => TkType::Minus,

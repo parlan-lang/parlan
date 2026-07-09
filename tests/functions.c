@@ -1,10 +1,10 @@
 extern int printf(char** fmt,...);
 
-int square(int n) {
+double square(double n) {
     return (n * n);
 }
 
-int fib(int n) {
+double fib(double n) {
     if ((n < 2)) {
 
         return n;
@@ -12,7 +12,7 @@ int fib(int n) {
     return (fib((n - 1)) + fib((n - 2)));
 }
 
-double sqrt(int n,int prec) {
+double sqrt(double n,int prec) {
     double x = (n / 2);
     int i = 0;
     while ((i < prec)) {
@@ -24,8 +24,8 @@ double sqrt(int n,int prec) {
 }
 
 int main() {
-    int fib5 = fib(5);
-    int sqfib5 = square(fib5);
+    double fib5 = fib(5);
+    double sqfib5 = square(fib5);
     double sqrtsqfib5 = sqrt(sqfib5,10);
     printf("%lf\n",sqrtsqfib5);
     return 0;

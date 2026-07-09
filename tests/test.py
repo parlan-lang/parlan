@@ -9,14 +9,38 @@
 # note: this is a very simple test suite, and will probably change soon to be more robust
 
 import subprocess, filecmp
+from pathlib import Path
 
 tests = [
-    "glb_vars",
-    "loops",
-    "ifs",
-    "functions",
+    ["glb_vars", False],
+    ["loops", False],
+    ["ifs", False],
+    ["functions", False],
+    #["type_checker_fail", True]
+    #["semantic_checker_fail", True]
     
 ]
+
+curr_dir = Path(__file__).resolve().parent
+exe_path = curr_dir.parent / "target" / "release" / "parlan.exe"
+
+def run_test(test, should_fail):
+    try:
+        command = [str(exe_path)] + [curr_dir / f"{test}.par", "-o", curr_dir / "out.c", "-emit-c"]
+        out = subprocess.run(command, capture_output=True, text=True, check=True)
+
+        is_correct = filecmp.cmp(curr_dir / f"{test}.c", curr_dir / "out.c", shallow=False)
+        if not is_correct:
+            print(f"test: {test}.par -> failed")
+            return 1
+        print(f"test: {test}.par -> passed")
+        return 0
+    except subprocess.CalledProcessError as e:
+        if not should_fail:
+            print(f"fail compiling {test}.par:\nstdout: \n{e.stdout}\nstderr: \n{e.stderr}")
+            exit(1)
+        else:
+            print(f"test: {test}.par -> passed (expected to fail)")
 
 def run_tests(): 
     global tests
@@ -32,4 +56,7 @@ def run_tests():
             f"test: {test}.par -> failed"
         )
 
-run_tests()
+for test in tests:
+    out = run_test(test[0],test[1])
+    if out == 1:
+        exit(1)

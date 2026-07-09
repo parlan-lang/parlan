@@ -2,12 +2,11 @@
 this is the main file, where the pipeline starts and ends
 */
 
-//#![allow(unused)]
-
-// rewrite
 mod lexer;
 mod parser;
 mod ast;
+mod semchecker;
+mod tychecker;
 mod backend;
 
 use std::io::Write;
@@ -22,6 +21,7 @@ Options:
     --help              Display this message
     --version           Print version info and exit
     -cc <CC>            Use CC to compile the C generated code (by default, clang is selected)
+    -emit-c             Generates a C source file instead of an executable
     -time-report        Prints a simple report 
     -o <FILENAME>       Write output to FILENAME
 
@@ -112,6 +112,12 @@ fn main() {
         parser.dbg_print();
         return;
     }
+
+    let mut semchecker = semchecker::SemChecker::new(&parser.nodes, &source);
+    semchecker.analize();
+
+    let mut tychecker = tychecker::TyChecker::new(&parser.nodes, &source);
+    tychecker.analize();
 
     let mut backend = backend::Backend::new(source);
     time_report_backend_s = Instant::now();

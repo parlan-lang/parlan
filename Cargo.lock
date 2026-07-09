@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "parlan_rust"
+name = "parlan"
 version = "0.1.0"
