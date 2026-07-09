@@ -12,7 +12,7 @@ This is the official documentation of the parlan programming language.
   - [Data Types](#data-types)
   - [Operators](#operators)
   - [Control Flow](#control-flow)
-  - [Functions]()
+  - [Functions](#functions)
 - [What's New in Parlan](#whats-new-in-parlan)
 
 ## Getting Started 
@@ -49,7 +49,7 @@ Run the following command to verify everything works and to check your parlan ve
 
 ```
 > ./parlan --version
-parlan v0.2
+parlan v0.3
 ```
 
 ### Hello, World!
@@ -97,10 +97,10 @@ Congratulations! you made your first program in parlan!
 
 ### Variables
 
-In parlan, variables are declared using the `var` keyword, and every variable must have an explicity defined type.  
+In parlan, variables are declared using the `var` keyword, and the type of the variable could be infered.  
 To declare a variable, you need to provide a name, a type, and a initial value. for example: 
 ```
-var pi: float = 3.14
+var pi: float = 3.14;
 ``` 
 
 Variables in parlan are mutable by default. this means you can change their value at any point after they are declared.  
@@ -109,19 +109,14 @@ here is an example:
 func main(): int {
     // this is a comment!
     // here we define a variable:
-    var a: int = 9
+    var a = 9;
 
     // and here we change its value:
-    a = 8
+    a = 8;
 
-    return 0
+    return 0;
 }
 ```
-
-> [!WARNING]
-> the parlan compiler does not currently feature type checking, this means parlan itself will not throw an error if you assing a value of a diffrent type to an existing variable.  
-> however, because parlan transpiles to C, the underlying C compiler will probably catch these type mismatches and will fail to compile.  
-> So always ensure your new values match the original type
 
 ### Data Types
 
@@ -182,7 +177,7 @@ and `else` to execute code if none of the conditions were true.
 
 Here is a little example:
 ```
-var x: int = 6
+var x = 6;
 if x < 10 {
     // something
 } else if x == 6 {
@@ -224,7 +219,7 @@ This is especially useful for calling standard C library (`libc`) functions (e.g
 Example: 
 
 ```
-extern func printf(fmt: str, ...): int
+extern func printf(fmt: str, ...): int;
 ```
 
 #### The `main` function
@@ -245,32 +240,15 @@ func main(argc: int, argv: str): int {
 
 Here are the primary highlights and changes introduced in the latest release.
 
-### Main Changes in v0.2
+### Main Changes in v0.3
 
-- **New compiler flags**  
-  
-    This new version of the compiler comes with new flags, here is a simple list of the added compiler flags:
-    - **`-cc`:** manually specify your preferred C compiler
-    - **`-time-report`:** make a simple resume of the time the compiler took to compile (inspired by clang `-ftime-report`)
-    - **`--version`:** check your current compiler version
-    - **`--help`:** shows a simple help message 
-   
-    *to check all the avaiable flags, run the `--help` command*
+- **New Type Checker and Semantic Analizer**
 
-- **Full Rewrite**
+    This new version features a type checker and a semantic analizer, this makes parlan more safe.
+    In previous version, you can assign a variable of type `int` a value of type `float`, but in this version the type checker ensures that this never happens.
+    The semantic analizer, in the other side, ensure that all symbols are correctly defined before used
 
-    The main change of this new version is that the compiler was 100% rewrited from scratch, and the performance have increase (*formal benchmarks have not yet been conducted*)
+- **Syntax Change**
 
-    The main pourpuse of this rewrite was to make the compiler easier to expand and maintain
-
-- **`extern` keyword**
-
-    This new version arrives with the `extern` keyword, that makes posible to call foreign functions with 100% parlan syntax
-
-- **Vector Intrinsics and `c_code` blocks removed**
-
-    This version also totally removes vector intrinsics and `c_code` blocks.  
-
-    * **Vector intrinsics:** Previouly used to store a collection of elements of the same type, these have been removed to reduce unnecessary compiler complexity
-
-    * **`c_code` blocks:** Allowed direct C code injection into the final output. Was powerful, but it introduced safety risks. These blocks can be now replaced by `extern` functions
+    In this new version every single statement *must* end with a semicolon, like C or Rust.
+    This was made to make parlan less ambigous

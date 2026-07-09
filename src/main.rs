@@ -67,7 +67,7 @@ fn main() {
                 time_report = true;
             }
             "--version" => {
-                println!("parlan v0.2");
+                println!("parlan v0.3");
                 return;
             }
             "--help" => {
