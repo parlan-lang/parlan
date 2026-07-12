@@ -1,12 +1,12 @@
 # Contributing to Parlan
 
-First off, thank you for taking youe time to contribute! Parlan exists for the pure joy of coding, and we love having others join in to help polish the wheel.
+First off, thank you for taking your time to contribute! Parlan exists for the pure joy of coding, and we love having others join in to help polish the wheel.
 
 Whether you are fixing a typo in the documentation, reporting a bug, or adding a new feature, your help is welcome
 
 ## Reporting a Bug
 
-If you find someething broken, please open an Issue on Github and include:
+If you find something broken, please open an Issue on Github and include:
 
 * A brief description of what went wrong
 * The version of parlan used
@@ -16,8 +16,8 @@ If you find someething broken, please open an Issue on Github and include:
 
 If you have an idea on how to polish parlan, we would love to hear it!
 
-* Open an Issue to discuss your idea before writting code
-* **Remenber:** Parlan's goal is simplicity. We prefer features that polish existing things rather than adding unnecessary complexity
+* Open an Issue to discuss your idea before writing code
+* **Remember:** Parlan's goal is simplicity. We prefer features that polish existing things rather than adding unnecessary complexity
 
 ## Submit Changes (Pull Request)
 
