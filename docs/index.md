@@ -1,6 +1,6 @@
 # The Parlan Programming Language Documentation
 
-This is the official documentation of the parlan programming language.
+This is the official documentation for the Parlan programming language.
 
 ## Table Of Contents
 
@@ -45,7 +45,7 @@ Once `rustc` is installed, run the following command to build the project:
 
 After a successful build, a `parlan` executable will be generated in the root directory.
 
-Run the following command to verify everything works and to check your parlan version:
+Run the following command to verify that everything works and to check your Parlan version:
 
 ```
 > ./parlan --version
@@ -54,7 +54,7 @@ parlan v0.3
 
 ### Hello, World!
 
-Let's write your first `hello, world!` program in parlan!
+Let's write your first `hello, world!` program in Parlan!
 
 Create a new file with the name: `hello.par` and write the following code:
 
@@ -86,25 +86,29 @@ If the compilation succeeds, a `hello` executable will be generated in the curre
 hello, world!
 ```
 
-Congratulations! you made your first program in parlan!
+Congratulations! You wrote your first program in Parlan!
 
 > [!NOTE]
-> if parlan throws an error regarding a missing C compiler, it means `clang` (the default C compiler) cannot be found in your system.
-> in case you have a different C compiler installed (such as `gcc`), you can explicitly provide the path or command to it using the `-cc` flag:
-> ```./parlan hello.par -o hello -cc gcc```
+> If Parlan throws an error regarding a missing C compiler, it means that `clang` (the default C compiler) cannot be found on your system.
+> If you have a different C compiler installed (such as `gcc`), you can explicitly provide the path or command to it using the `-cc` flag:
+>
+> ```bash
+> ./parlan hello.par -o hello -cc gcc
+> ```
 
 ## Basic Concepts
 
 ### Variables
 
-In parlan, variables are declared using the `var` keyword, and the type of the variable could be inferred.
-To declare a variable, you need to provide a name, a type, and a initial value. for example:
+In parlan, variables are declared using the `var` keyword, and the type of the variable can be inferred.
+To declare a variable, you need to provide a name, a type, and a initial value. For example:
 ```
 var pi: float = 3.14;
 ```
 
-Variables in parlan are mutable by default. this means you can change their value at any point after they are declared.
-here is an example:
+Variables in Parlan are mutable by default. This means you can change their value at any point after they are declared.
+
+Here is an example:
 ```
 func main(): int {
     // this is a comment!
@@ -123,10 +127,10 @@ func main(): int {
 Parlan provides several primitive data types.
 The table below lists the available types, their descriptions, and their equivalents in the generated C code:
 
-| Type | Description | equivalent in C |
+| Type | Description | Equivalent in C |
 | :-- | :-- | :-- |
 | `int` | integer number | `int` |
-| `floar` | floating-point number | `double` |
+| `float` | floating-point number | `double` |
 | `bool` | boolean (`true` or `false`) | `unsigned char` (`1` or `0`) |
 | `str` | text string | `const char*` |
 | `void` | absence of a value (used for functions that return nothing) | `void` |
@@ -167,7 +171,7 @@ Used to compare two values. These operations always return a `bool` (`true` or `
 
 ### Control Flow
 
-Control flow structures allow you to control the order in which your code executes based on conditions and loops
+Control flow structures allow you to control the order in which your code executes based on conditions and loops.
 
 #### Conditionals
 
@@ -189,9 +193,9 @@ if x < 10 {
 
 #### Loops
 
-Loops are used to repeat a block of code multiple times
+Loops are used to repeat a block of code multiple times.
 
-Currently, parlan supports `while` loops:
+Currently, Parlan supports `while` loops:
 
 ```
 while 1 == 1 {
@@ -214,7 +218,7 @@ func square(n: int): int {
 #### External Functions
 
 You can declare a function as external by prefixing it with the `extern` keyword. This tells the compiler that the function's implementation is defined elsewhere (outside the current file).
-This is especially useful for calling standard C library (`libc`) functions (e.g., `printf`) directly in parlan
+This is especially useful for calling standard C library (`libc`) functions (e.g., `printf`) directly in Parlan.
 
 Example:
 
@@ -226,7 +230,7 @@ extern func printf(fmt: str, ...): int;
 
 Because parlan transpiles to C, every executable program must include a `main` function to act as the program's entry point.
 
-If your program needs to accept command-line arguments, you can pass standard `argc` and `argv` parameters to the `main` function
+If your program needs to accept command-line arguments, you can pass the standard `argc` and `argv` parameters to the `main` function.
 
 Example:
 
@@ -242,13 +246,16 @@ Here are the primary highlights and changes introduced in the latest release.
 
 ### Main Changes in v0.3
 
-- **New Type Checker and Semantic Analizer**
+- **New Type Checker and Semantic Analyzer**
 
-    This new version features a type checker and a semantic analyzer, this makes parlan more safe.
-    In previous version, you can assign a variable of type `int` a value of type `float`, but in this version the type checker ensures that this never happens.
-    The semantic analyzer, in the other side, ensure that all symbols are correctly defined before used
+This new version features a type checker and a semantic analyzer, making Parlan safer.
+
+In previous versions, you could assign a variable of type `int` a value of type `float`, but in this version the type checker ensures that this never happens.
+
+The semantic analyzer, on the other hand, ensures that all symbols are correctly defined before they are used.
 
 - **Syntax Change**
 
-    In this new version every single statement *must* end with a semicolon, like C or Rust.
-    This was made to make parlan less ambiguous
+    In this new version, every statement *must* end with a semicolon, like C or Rust.
+
+    This change makes Parlan less ambiguous.
