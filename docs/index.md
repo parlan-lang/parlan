@@ -101,7 +101,7 @@ Congratulations! You wrote your first program in Parlan!
 ### Variables
 
 In Parlan, variables are declared using the `var` keyword, and the type of the variable can be inferred.
-To declare a variable, you need to provide a name, a type, and a initial value. For example:
+To declare a variable, you need to provide a name, a type, and an initial value. For example:
 ```
 var pi: float = 3.14;
 ```
