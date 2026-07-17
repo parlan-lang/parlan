@@ -43,7 +43,7 @@ Once `rustc` is installed, run the following command to build the project:
 
 #### 3. Verify the Installation
 
-After a successful build, a `parlan` executable will be generated in the root directory.
+After a successful build, a `Parlan` executable will be generated in the root directory.
 
 Run the following command to verify that everything works and to check your Parlan version:
 
@@ -75,7 +75,7 @@ Save the file, open your terminal, and run the following command to compile your
 > ./parlan hello.par -o hello
 ```
 
-**Note for Windows:** if you are on windows, make sure to add the `.exe` extension to your output file: `./parlan hello.par -o hello.exe`
+**Note for Windows:** if you are on Windows, make sure to add the `.exe` extension to your output file: `./parlan hello.par -o hello.exe`
 
 #### Run the Program:
 
@@ -100,7 +100,7 @@ Congratulations! You wrote your first program in Parlan!
 
 ### Variables
 
-In parlan, variables are declared using the `var` keyword, and the type of the variable can be inferred.
+In Parlan, variables are declared using the `var` keyword, and the type of the variable can be inferred.
 To declare a variable, you need to provide a name, a type, and a initial value. For example:
 ```
 var pi: float = 3.14;
@@ -129,11 +129,11 @@ The table below lists the available types, their descriptions, and their equival
 
 | Type | Description | Equivalent in C |
 | :-- | :-- | :-- |
-| `int` | integer number | `int` |
-| `float` | floating-point number | `double` |
-| `bool` | boolean (`true` or `false`) | `unsigned char` (`1` or `0`) |
-| `str` | text string | `const char*` |
-| `void` | absence of a value (used for functions that return nothing) | `void` |
+| `int` | Integer number | `int` |
+| `float` | Floating-point number | `double` |
+| `bool` | Boolean (`true` or `false`) | `unsigned char` (`1` or `0`) |
+| `str` | Text string | `const char*` |
+| `void` | Absence of a value (used for functions that return nothing) | `void` |
 
 ### Operators
 
@@ -150,7 +150,7 @@ Used to perform standard mathematical calculations.
 | `/` | Division | `a / b` |
 
 #### Logical (Boolean) Operators
-Used to combine multiple conditions or invert booleans.
+Used to combine multiple conditions or invert Booleans.
 
 | Operator | Description | Example |
 | :---: | :--- | :--- |
@@ -177,7 +177,7 @@ Control flow structures allow you to control the order in which your code execut
 
 Parlan uses `if` statements to execute code only when a specific condition is met.
 You can use `else if` to check additional conditions,
-and `else` to execute code if none of the conditions were true.
+and `else` to execute code if none of the conditions are true.
 
 Here is a little example:
 ```
@@ -205,7 +205,7 @@ while 1 == 1 {
 
 ### Functions
 
-In parlan, functions are defined using the `func` keyword, followed by the function's name, a list of parameters with their types, then the return type after a colon (`:`), and finally the function body.
+In Parlan, functions are defined using the `func` keyword, followed by the function's name, a list of parameters with their types, then the return type after a colon (`:`), and finally the function body.
 
 Here is an example of a simple function:
 
@@ -218,7 +218,7 @@ func square(n: int): int {
 #### External Functions
 
 You can declare a function as external by prefixing it with the `extern` keyword. This tells the compiler that the function's implementation is defined elsewhere (outside the current file).
-This is especially useful for calling standard C library (`libc`) functions (e.g., `printf`) directly in Parlan.
+This is especially useful for calling the standard C library (`libc`) functions (e.g., `printf`) directly in Parlan.
 
 Example:
 
@@ -228,7 +228,7 @@ extern func printf(fmt: str, ...): int;
 
 #### The `main` function
 
-Because parlan transpiles to C, every executable program must include a `main` function to act as the program's entry point.
+Because Parlan transpiles to C, every executable program must include a `main` function to act as the program's entry point.
 
 If your program needs to accept command-line arguments, you can pass the standard `argc` and `argv` parameters to the `main` function.
 
