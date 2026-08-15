@@ -1,10 +1,18 @@
 extern func printf(fmt: str, ...): int;
-func set(a: int, d: int, j: int): int {
+func set(a: int, d: int, i: int): void {
     printf("set:\n{")
-    for (var i: int = 1; i <= j; i = i+1) {
-        int term = (a + (d*(i-1)));
-        if (i!=j) {printf("%d ", term)} else {printf("%d}\n", term);}
+    j: int = 1;
+    while i > 0 {
+        term: int = a + d*(j-1);
+        printf("%d", term);
+        if i != 1 {
+            printf(", ");
+        }
+
+        j = j + 1;
+        i = i - 1;
     }
+    printf("}\n");
 }
 
 func main(): int {
