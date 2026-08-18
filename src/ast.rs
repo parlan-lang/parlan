@@ -1,71 +1,60 @@
-//! in this file is implemented the AST as an enumeration
+//! Abstract Syntax Tree (AST) definition
 
-use std::fmt::Debug;
+// Added temporarily to eliminate warnings
+// TODO: delete this 
+#![allow(unused)]
 
-use crate::lexer::{Lexer, TkType};
+/// Represents a type
+#[derive(Debug)]
+pub enum Ty {
+    Void,
+    Unknown, // an unknown type during parsing, must be infered by the type-checker
+    Error,
+}
 
-// enum representing a node in the AST
-#[derive(Debug, Clone)]
-pub enum Node {
-    Integer(usize),
-    Float(f64),
-    Bool(bool),
-    Str(usize, usize), // start and end
-    Id(usize, usize), // start and end
-    BinOp {
-        left:  Box<Node>,
-        right: Box<Node>,
-        op:    TkType
-    },
-    Unary {
-        right: Box<Node>,
-        op:    TkType
-    },
+/// Represents an literal 
+#[derive(Debug)]
+pub enum Literal {
+    Integer(isize),
+}
+
+/// Represents an expression
+#[derive(Debug)]
+pub enum Expr<'expr> {
+    Literal(Literal),
+    Id(&'expr str),
+    Error((usize, usize)),
+}
+
+/// Represents a statement
+#[derive(Debug)]
+pub enum Stmt<'stmt> {
     VarDecl {
-        name_s: usize, // name start
-        name_e: usize, // name end 
-        vtype:  TkType, // variable type
-        value:  Box<Node> // the performance cost is acceptable
+        name: &'stmt str,
+        ty: Ty,
+        expr: Expr<'stmt>,
     },
-    VarReassing {
-        name_s: usize, name_e: usize,
-        value:  Box<Node>
+    Block {
+        stmts: Vec<Stmt<'stmt>>
     },
-    Block(Vec<Node>),
-    FuncDecl {
-        name_s:    usize, name_e: usize,
-        args:      Vec<(usize, usize, TkType)>,
-        rtype:     TkType,
-        body:      Option<Box<Node>>, // None in case if is an external function
-        is_extern: bool
-    },
-    Return(Box<Node>),
-    FuncCall {
-        name: Box<Node>,
-        args: Vec<Node>,
-    },
-    While {
-        cond: Box<Node>,
-        body: Box<Node>
-    },
-    If {
-        cond:    Box<Node>,
-        then_br: Box<Node>,
-        else_br: Option<Box<Node>>
-    }
+    Error((usize, usize))
 }
 
-// the parser
-pub struct Parser {
-    pub source: String,
-    pub nodes:  Vec<Node>,
-    pub lexer:  Lexer
+/// Represents an item inside an module ([`AstModule`])
+#[derive(Debug)]
+pub enum AstItem<'item> {
+    Function {
+        name: &'item str,
+        args: Vec<(Expr<'item>, Ty)>,
+        ret: Ty,
+        body: Stmt<'item>  
+    },
+    Error((usize, usize))
 }
 
-impl Parser {
-    pub fn dbg_print(&self) {
-        for n in &self.nodes {
-            eprintln!("{n:#?}");
-        }
-    }
+/// Represents a single compilation unit (a single file)
+#[derive(Debug)]
+pub struct AstModule<'module> {
+    pub file_id: usize,
+    pub items: Vec<AstItem<'module>>,
 }
