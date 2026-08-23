@@ -42,7 +42,13 @@ fn main() {
     let mut emit_c = false;
     let mut time_report = false;
 
-    let args = std::env::args().collect::<Vec<String>>(); // we collect the command line arguments into a vector
+    let args = std::env::args().collect::<Vec<String>>();
+    if args.lexing_only {
+        // Lex-only mode: tokenize input and exit without full compile.
+        eprintln!("lexing-only mode enabled");
+        return Ok(());
+    }
+ // we collect the command line arguments into a vector
     
     // handling the command line arguments
     let mut i: usize = 1;
